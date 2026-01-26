@@ -21,8 +21,10 @@ import { Nav, MobileNav, NAV_WIDTH } from '~/components/Nav';
 import { TermsAndConditionsModal } from '~/components/ui';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
+import AssistantUILayout from '~/layouts/assistant-ui/routes/Root';
 
 export default function Root() {
+  const { data: startupConfig } = useGetStartupConfig();
   const [showTerms, setShowTerms] = useState(false);
   const [bannerHeight, setBannerHeight] = useState(0);
   const [navVisible, setNavVisible] = useState(() => {
@@ -66,6 +68,33 @@ export default function Root() {
     return null;
   }
 
+  const DefaultLayout = (
+    <>
+      <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
+      <div
+        className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden"
+        style={
+          isSmallScreen
+            ? {
+                transform: navVisible ? `translateX(${NAV_WIDTH.MOBILE}px)` : 'translateX(0)',
+                transition: 'transform 0.2s ease-out',
+              }
+            : undefined
+        }
+      >
+        <MobileNav navVisible={navVisible} setNavVisible={setNavVisible} />
+        <Outlet context={{ navVisible, setNavVisible } satisfies ContextType} />
+      </div>
+    </>
+  );
+
+  const layout = startupConfig?.interface?.layout ?? 'default';
+
+  let LayoutElement = DefaultLayout;
+  if (layout === 'assistant-ui') {
+    LayoutElement = <AssistantUILayout />;
+  }
+
   return (
     <SetConvoProvider>
       <FileMapContext.Provider value={fileMap}>
@@ -75,23 +104,7 @@ export default function Root() {
               <Banner onHeightChange={setBannerHeight} />
               <div className="flex" style={{ height: `calc(100dvh - ${bannerHeight}px)` }}>
                 <div className="relative z-0 flex h-full w-full overflow-hidden">
-                  <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
-                  <div
-                    className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden"
-                    style={
-                      isSmallScreen
-                        ? {
-                            transform: navVisible
-                              ? `translateX(${NAV_WIDTH.MOBILE}px)`
-                              : 'translateX(0)',
-                            transition: 'transform 0.2s ease-out',
-                          }
-                        : undefined
-                    }
-                  >
-                    <MobileNav navVisible={navVisible} setNavVisible={setNavVisible} />
-                    <Outlet context={{ navVisible, setNavVisible } satisfies ContextType} />
-                  </div>
+                  {LayoutElement}
                 </div>
               </div>
             </PromptGroupsProvider>

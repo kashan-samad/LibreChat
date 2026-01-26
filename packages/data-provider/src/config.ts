@@ -601,6 +601,7 @@ export type TMcpServersConfig = z.infer<typeof mcpServersSchema>;
 
 export const interfaceSchema = z
   .object({
+    layout: z.string().optional(),
     privacyPolicy: z
       .object({
         externalUrl: z.string().optional(),
@@ -658,6 +659,7 @@ export const interfaceSchema = z
     fileCitations: z.boolean().optional(),
   })
   .default({
+    layout: 'default',
     endpointsMenu: true,
     modelSelect: true,
     parameters: true,

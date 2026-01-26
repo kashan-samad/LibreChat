@@ -29,6 +29,7 @@ export async function loadDefaultInterface({
 
   const loadedInterface: AppConfig['interfaceConfig'] = removeNullishValues({
     // UI elements - use schema defaults
+    layout: interfaceConfig?.layout ?? defaults.layout,
     endpointsMenu:
       interfaceConfig?.endpointsMenu ?? (hasModelSpecs ? false : defaults.endpointsMenu),
     modelSelect:
