@@ -27,6 +27,7 @@ cache: true
 
 # Custom interface configuration
 interface:
+  layout: 'default'
   customWelcome: 'Welcome to LibreChat! Enjoy your experience.'
   # Enable/disable file search as a chatarea selection (default: true)
   # Note: This setting does not disable the Agents File Search Capability.
