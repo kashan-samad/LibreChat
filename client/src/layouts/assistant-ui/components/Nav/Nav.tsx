@@ -1,15 +1,32 @@
-import { useCallback, useEffect, useState, memo, startTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useMemo,
+  memo,
+  lazy,
+  Suspense,
+  useRef,
+  startTransition,
+} from 'react';
 import { useRecoilValue } from 'recoil';
 import { motion } from 'framer-motion';
 import { Skeleton, useMediaQuery } from '@librechat/client';
-import { useLocalize, useAuthContext, useLocalStorage } from '~/hooks';
+import type { InfiniteQueryObserverResult } from '@tanstack/react-query';
+import type { ConversationListResponse } from 'librechat-data-provider';
+import type { List } from 'react-virtualized';
+import { useLocalize, useAuthContext, useLocalStorage, useNavScrolling } from '~/hooks';
 import { useConversationsInfiniteQuery, useTitleGeneration } from '~/data-provider';
+import { Conversations } from '~/components/Conversations';
 import { cn } from '~/utils';
 import store from '~/store';
+import { MessageSquare, LayoutGrid } from 'lucide-react';
+
+const AccountSettings = lazy(() => import('~/components/Nav/AccountSettings'));
 
 export const NAV_WIDTH = {
-  MOBILE: 320,
-  DESKTOP: 260,
+  MOBILE: 64,
+  DESKTOP: 64,
 } as const;
 
 const SearchBarSkeleton = memo(() => (
@@ -52,21 +69,52 @@ const Nav = memo(
 
     const isSmallScreen = useMediaQuery('(max-width: 768px)');
     const [newUser, setNewUser] = useLocalStorage('newUser', true);
+    const [isChatsExpanded, setIsChatsExpanded] = useLocalStorage('chatsExpanded', true);
+    const [showLoading, setShowLoading] = useState(false);
     const [tags] = useState<string[]>([]);
 
     const search = useRecoilValue(store.search);
 
-    const { refetch } = useConversationsInfiniteQuery(
-      {
-        tags: tags.length === 0 ? undefined : tags,
-        search: search.debouncedQuery || undefined,
+    const { data, fetchNextPage, isFetchingNextPage, isLoading, isFetching, refetch } =
+      useConversationsInfiniteQuery(
+        {
+          tags: tags.length === 0 ? undefined : tags,
+          search: search.debouncedQuery || undefined,
+        },
+        {
+          enabled: isAuthenticated,
+          staleTime: 30000,
+          cacheTime: 300000,
+        },
+      );
+
+    const computedHasNextPage = useMemo(() => {
+      if (data?.pages && data.pages.length > 0) {
+        const lastPage: ConversationListResponse = data.pages[data.pages.length - 1];
+        return lastPage.nextCursor !== null;
+      }
+      return false;
+    }, [data?.pages]);
+
+    const outerContainerRef = useRef<HTMLDivElement>(null);
+    const conversationsRef = useRef<List | null>(null);
+
+    const { moveToTop } = useNavScrolling<ConversationListResponse>({
+      setShowLoading,
+      fetchNextPage: async (options?) => {
+        if (computedHasNextPage) {
+          return fetchNextPage(options);
+        }
+        return Promise.resolve(
+          {} as InfiniteQueryObserverResult<ConversationListResponse, unknown>,
+        );
       },
-      {
-        enabled: isAuthenticated,
-        staleTime: 30000,
-        cacheTime: 300000,
-      },
-    );
+      isFetchingNext: isFetchingNextPage,
+    });
+
+    const conversations = useMemo(() => {
+      return data ? data.pages.flatMap((page) => page.conversations) : [];
+    }, [data]);
 
     const toggleNavVisible = useCallback(() => {
       // Use startTransition to mark this as a non-urgent update
@@ -82,6 +130,12 @@ const Nav = memo(
       });
     }, [newUser, setNavVisible, setNewUser]);
 
+    const itemToggleNav = useCallback(() => {
+      if (isSmallScreen) {
+        toggleNavVisible();
+      }
+    }, [isSmallScreen, toggleNavVisible]);
+
     useEffect(() => {
       if (isSmallScreen) {
         const savedNavVisible = localStorage.getItem('navVisible');
@@ -95,6 +149,28 @@ const Nav = memo(
       refetch();
     }, [tags, refetch]);
 
+    const loadMoreConversations = useCallback(() => {
+      if (isFetchingNextPage || !computedHasNextPage) {
+        return;
+      }
+
+      fetchNextPage();
+    }, [isFetchingNextPage, computedHasNextPage, fetchNextPage]);
+
+    const [isSearchLoading, setIsSearchLoading] = useState(
+      !!search.query && (search.isTyping || isLoading || isFetching),
+    );
+
+    useEffect(() => {
+      if (search.isTyping) {
+        setIsSearchLoading(true);
+      } else if (!isLoading && !isFetching) {
+        setIsSearchLoading(false);
+      } else if (!!search.query && (isLoading || isFetching)) {
+        setIsSearchLoading(true);
+      }
+    }, [search.query, search.isTyping, isLoading, isFetching]);
+
     // Always render sidebar to avoid mount/unmount costs
     // Use transform for GPU-accelerated animation (no layout thrashing)
     const sidebarWidth = isSmallScreen ? NAV_WIDTH.MOBILE : NAV_WIDTH.DESKTOP;
@@ -103,64 +179,63 @@ const Nav = memo(
     const sidebarContent = (
       <div className="flex h-full flex-col">
         <nav
-          id="custom-nav"
-          aria-label="Custom Navigation"
-          className="flex h-full flex-col px-4 pb-4 pt-4"
+          id="chat-history-nav"
+          aria-label={localize('com_ui_chat_history')}
+          className="flex h-full flex-col items-center px-2 pb-3.5 pt-2"
+          aria-hidden={!navVisible}
         >
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-lg font-semibold text-text-primary">{'Navigation'}</h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              {localize('com_nav_custom_sidebar_demo')}
-            </p>
-          </div>
+          <div
+            className="flex flex-1 flex-col items-center overflow-hidden"
+            ref={outerContainerRef}
+          >
+            {/* New Chat Button */}
+            <div className="mb-2 w-full">
+              <button
+                className="hover:bg-surface-tertiary/80 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-tertiary text-text-primary transition-colors"
+                title={localize('com_ui_new_chat')}
+                aria-label={localize('com_ui_new_chat')}
+                onClick={() => {
+                  window.location.href = '/';
+                }}
+              >
+                <MessageSquare className="h-5 w-5" />
+              </button>
+            </div>
 
-          {/* Quick Actions */}
-          <div className="mb-6">
-            <h2 className="mb-3 text-sm font-medium text-text-primary">
-              {localize('com_nav_quick_actions')}
-            </h2>
-            <div className="space-y-2">
-              <button className="hover:bg-surface-tertiary/80 w-full rounded-lg bg-surface-tertiary px-3 py-2 text-left text-sm text-text-primary transition-colors">
-                {localize('com_nav_new_document')}
+            {/* Agents Button */}
+            <div className="mb-2 w-full">
+              <button
+                className="hover:bg-surface-tertiary/80 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-secondary text-text-primary transition-colors"
+                title="Agents"
+                aria-label="Agents"
+                onClick={() => {
+                  window.location.href = '/agents';
+                }}
+              >
+                <LayoutGrid className="h-5 w-5" />
               </button>
-              <button className="hover:bg-surface-tertiary/80 w-full rounded-lg bg-surface-tertiary px-3 py-2 text-left text-sm text-text-primary transition-colors">
-                {localize('com_nav_search_files')}
-              </button>
-              <button className="hover:bg-surface-tertiary/80 w-full rounded-lg bg-surface-tertiary px-3 py-2 text-left text-sm text-text-primary transition-colors">
-                {localize('com_nav_settings')}
-              </button>
+            </div>
+
+            {/* Conversations List */}
+            <div className="flex min-h-0 flex-grow flex-col overflow-hidden">
+              <Conversations
+                conversations={conversations}
+                moveToTop={moveToTop}
+                toggleNav={itemToggleNav}
+                containerRef={conversationsRef}
+                loadMoreConversations={loadMoreConversations}
+                isLoading={isFetchingNextPage || showLoading || isLoading}
+                isSearchLoading={isSearchLoading}
+                isChatsExpanded={isChatsExpanded}
+                setIsChatsExpanded={setIsChatsExpanded}
+              />
             </div>
           </div>
 
-          {/* Recent Items */}
-          <div className="mb-6 flex-1">
-            <h2 className="mb-3 text-sm font-medium text-text-primary">
-              {localize('com_nav_recent_items')}
-            </h2>
-            <div className="space-y-1">
-              {[1, 2, 3].map((item) => (
-                <div
-                  key={item}
-                  className="hover:bg-surface-secondary/80 cursor-pointer rounded-lg bg-surface-secondary px-3 py-2 transition-colors"
-                >
-                  <div className="text-sm font-medium text-text-primary">
-                    {localize('com_nav_item')} {item}
-                  </div>
-                  <div className="text-xs text-text-secondary">
-                    {localize('com_nav_sample_description')}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="border-border-primary mt-auto border-t pt-4">
-            <div className="text-center text-xs text-text-secondary">
-              {localize('com_nav_custom_layout_active')}
-            </div>
-          </div>
+          {/* Account Settings */}
+          <Suspense fallback={<Skeleton className="mt-1 h-10 w-10 rounded-xl" />}>
+            <AccountSettings />
+          </Suspense>
         </nav>
       </div>
     );

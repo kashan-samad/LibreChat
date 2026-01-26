@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, Suspense } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useForm } from 'react-hook-form';
 import { Spinner } from '@librechat/client';
@@ -9,14 +9,13 @@ import type { ChatFormValues } from '~/common';
 import { ChatContext, AddedChatContext, useFileMapContext, ChatFormProvider } from '~/Providers';
 import { useAddedResponse, useResumeOnLoad, useAdaptiveSSE, useChatHelpers } from '~/hooks';
 import ConversationStarters from './Input/ConversationStarters';
-import { useGetMessagesByConvoId } from '~/data-provider';
+import { useGetMessagesByConvoId, useGetStartupConfig } from '~/data-provider';
 import MessagesView from './Messages/MessagesView';
 import Presentation from './Presentation';
 import ChatForm from './Input/ChatForm';
 import Landing from './Landing';
-import Header from './Header';
 import Footer from './Footer';
-import { cn } from '~/utils';
+import { cn, useLayoutComponent } from '~/utils';
 import store from '~/store';
 
 function LoadingSpinner() {
@@ -33,6 +32,11 @@ function ChatView({ index = 0 }: { index?: number }) {
   const { conversationId } = useParams();
   const rootSubmission = useRecoilValue(store.submissionByIndex(index));
   const centerFormOnLanding = useRecoilValue(store.centerFormOnLanding);
+
+  // Get current layout and dynamically load Header component
+  const { data: startupConfig } = useGetStartupConfig();
+  const layout = startupConfig?.interface?.layout ?? 'default';
+  const Header = useLayoutComponent('Chat/Header', layout);
 
   const fileMap = useFileMapContext();
 
@@ -82,7 +86,11 @@ function ChatView({ index = 0 }: { index?: number }) {
         <AddedChatContext.Provider value={addedChatHelpers}>
           <Presentation>
             <div className="relative flex h-full w-full flex-col">
-              {!isLoading && <Header />}
+              {!isLoading && (
+                <Suspense fallback={<div className="h-14 w-full bg-surface-primary" />}>
+                  <Header />
+                </Suspense>
+              )}
               <>
                 <div
                   className={cn(

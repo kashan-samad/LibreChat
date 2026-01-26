@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useMediaQuery } from '@librechat/client';
 import type { ContextType } from '~/common';
@@ -17,11 +17,11 @@ import {
   FileMapContext,
 } from '~/Providers';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
-import { Nav, MobileNav, NAV_WIDTH } from '~/components/Nav';
+import { MobileNav, NAV_WIDTH } from '~/components/Nav';
 import { TermsAndConditionsModal } from '~/components/ui';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
-import AssistantUILayout from '~/layouts/assistant-ui/routes/Root';
+import { useLayoutComponent } from '~/utils/layoutComponentLoader';
 
 export default function Root() {
   const { data: startupConfig } = useGetStartupConfig();
@@ -49,6 +49,12 @@ export default function Root() {
 
   useSearchEnabled(isAuthenticated);
 
+  // Get the current layout from config
+  const layout = startupConfig?.interface?.layout ?? 'default';
+
+  // Dynamically load the Nav component based on layout
+  const Nav = useLayoutComponent('Nav/Nav', layout);
+
   useEffect(() => {
     if (termsData) {
       setShowTerms(!termsData.termsAccepted);
@@ -68,9 +74,11 @@ export default function Root() {
     return null;
   }
 
-  const DefaultLayout = (
+  const LayoutElement = (
     <>
-      <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
+      <Suspense fallback={<div className="h-full w-64 bg-surface-primary-alt" />}>
+        <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
+      </Suspense>
       <div
         className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden"
         style={
@@ -87,13 +95,6 @@ export default function Root() {
       </div>
     </>
   );
-
-  const layout = startupConfig?.interface?.layout ?? 'default';
-
-  let LayoutElement = DefaultLayout;
-  if (layout === 'assistant-ui') {
-    LayoutElement = <AssistantUILayout />;
-  }
 
   return (
     <SetConvoProvider>
