@@ -1,41 +1,17 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-  useMemo,
-  memo,
-  lazy,
-  Suspense,
-  useRef,
-  startTransition,
-} from 'react';
-import { useRecoilValue } from 'recoil';
+import { useCallback, useEffect, memo, startTransition } from 'react';
 import { motion } from 'framer-motion';
-import { Skeleton, useMediaQuery } from '@librechat/client';
-import type { InfiniteQueryObserverResult } from '@tanstack/react-query';
-import type { ConversationListResponse } from 'librechat-data-provider';
-import type { List } from 'react-virtualized';
-import { useLocalize, useAuthContext, useLocalStorage, useNavScrolling } from '~/hooks';
-import { useConversationsInfiniteQuery, useTitleGeneration } from '~/data-provider';
-import { Conversations } from '~/components/Conversations';
+import { Link } from 'react-router-dom';
+import { useMediaQuery } from '@librechat/client';
+import { useLocalize, useAuthContext, useLocalStorage } from '~/hooks';
+import { useTitleGeneration } from '~/data-provider';
 import { cn } from '~/utils';
-import store from '~/store';
 import { MessageSquare, LayoutGrid } from 'lucide-react';
-
-const AccountSettings = lazy(() => import('~/components/Nav/AccountSettings'));
+import AccountSettings from '~/components/Nav/AccountSettings';
 
 export const NAV_WIDTH = {
   MOBILE: 64,
   DESKTOP: 64,
 } as const;
-
-const SearchBarSkeleton = memo(() => (
-  <div className={cn('flex h-10 items-center py-2')}>
-    <Skeleton className="h-10 w-full rounded-lg" />
-  </div>
-));
-
-SearchBarSkeleton.displayName = 'SearchBarSkeleton';
 
 const NavMask = memo(
   ({ navVisible, toggleNavVisible }: { navVisible: boolean; toggleNavVisible: () => void }) => (
@@ -55,6 +31,8 @@ const NavMask = memo(
   ),
 );
 
+NavMask.displayName = 'NavMask';
+
 const Nav = memo(
   ({
     navVisible,
@@ -69,52 +47,6 @@ const Nav = memo(
 
     const isSmallScreen = useMediaQuery('(max-width: 768px)');
     const [newUser, setNewUser] = useLocalStorage('newUser', true);
-    const [isChatsExpanded, setIsChatsExpanded] = useLocalStorage('chatsExpanded', true);
-    const [showLoading, setShowLoading] = useState(false);
-    const [tags] = useState<string[]>([]);
-
-    const search = useRecoilValue(store.search);
-
-    const { data, fetchNextPage, isFetchingNextPage, isLoading, isFetching, refetch } =
-      useConversationsInfiniteQuery(
-        {
-          tags: tags.length === 0 ? undefined : tags,
-          search: search.debouncedQuery || undefined,
-        },
-        {
-          enabled: isAuthenticated,
-          staleTime: 30000,
-          cacheTime: 300000,
-        },
-      );
-
-    const computedHasNextPage = useMemo(() => {
-      if (data?.pages && data.pages.length > 0) {
-        const lastPage: ConversationListResponse = data.pages[data.pages.length - 1];
-        return lastPage.nextCursor !== null;
-      }
-      return false;
-    }, [data?.pages]);
-
-    const outerContainerRef = useRef<HTMLDivElement>(null);
-    const conversationsRef = useRef<List | null>(null);
-
-    const { moveToTop } = useNavScrolling<ConversationListResponse>({
-      setShowLoading,
-      fetchNextPage: async (options?) => {
-        if (computedHasNextPage) {
-          return fetchNextPage(options);
-        }
-        return Promise.resolve(
-          {} as InfiniteQueryObserverResult<ConversationListResponse, unknown>,
-        );
-      },
-      isFetchingNext: isFetchingNextPage,
-    });
-
-    const conversations = useMemo(() => {
-      return data ? data.pages.flatMap((page) => page.conversations) : [];
-    }, [data]);
 
     const toggleNavVisible = useCallback(() => {
       // Use startTransition to mark this as a non-urgent update
@@ -130,12 +62,6 @@ const Nav = memo(
       });
     }, [newUser, setNavVisible, setNewUser]);
 
-    const itemToggleNav = useCallback(() => {
-      if (isSmallScreen) {
-        toggleNavVisible();
-      }
-    }, [isSmallScreen, toggleNavVisible]);
-
     useEffect(() => {
       if (isSmallScreen) {
         const savedNavVisible = localStorage.getItem('navVisible');
@@ -144,32 +70,6 @@ const Nav = memo(
         }
       }
     }, [isSmallScreen, toggleNavVisible]);
-
-    useEffect(() => {
-      refetch();
-    }, [tags, refetch]);
-
-    const loadMoreConversations = useCallback(() => {
-      if (isFetchingNextPage || !computedHasNextPage) {
-        return;
-      }
-
-      fetchNextPage();
-    }, [isFetchingNextPage, computedHasNextPage, fetchNextPage]);
-
-    const [isSearchLoading, setIsSearchLoading] = useState(
-      !!search.query && (search.isTyping || isLoading || isFetching),
-    );
-
-    useEffect(() => {
-      if (search.isTyping) {
-        setIsSearchLoading(true);
-      } else if (!isLoading && !isFetching) {
-        setIsSearchLoading(false);
-      } else if (!!search.query && (isLoading || isFetching)) {
-        setIsSearchLoading(true);
-      }
-    }, [search.query, search.isTyping, isLoading, isFetching]);
 
     // Always render sidebar to avoid mount/unmount costs
     // Use transform for GPU-accelerated animation (no layout thrashing)
@@ -184,58 +84,34 @@ const Nav = memo(
           className="flex h-full flex-col items-center px-2 pb-3.5 pt-2"
           aria-hidden={!navVisible}
         >
-          <div
-            className="flex flex-1 flex-col items-center overflow-hidden"
-            ref={outerContainerRef}
-          >
+          <div className="flex flex-1 flex-col items-center">
             {/* New Chat Button */}
             <div className="mb-2 w-full">
-              <button
+              <Link
+                to="/c/new"
                 className="hover:bg-surface-tertiary/80 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-tertiary text-text-primary transition-colors"
                 title={localize('com_ui_new_chat')}
                 aria-label={localize('com_ui_new_chat')}
-                onClick={() => {
-                  window.location.href = '/';
-                }}
               >
                 <MessageSquare className="h-5 w-5" />
-              </button>
+              </Link>
             </div>
 
             {/* Agents Button */}
             <div className="mb-2 w-full">
-              <button
+              <Link
+                to="/agents"
                 className="hover:bg-surface-tertiary/80 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-secondary text-text-primary transition-colors"
                 title="Agents"
                 aria-label="Agents"
-                onClick={() => {
-                  window.location.href = '/agents';
-                }}
               >
                 <LayoutGrid className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Conversations List */}
-            <div className="flex min-h-0 flex-grow flex-col overflow-hidden">
-              <Conversations
-                conversations={conversations}
-                moveToTop={moveToTop}
-                toggleNav={itemToggleNav}
-                containerRef={conversationsRef}
-                loadMoreConversations={loadMoreConversations}
-                isLoading={isFetchingNextPage || showLoading || isLoading}
-                isSearchLoading={isSearchLoading}
-                isChatsExpanded={isChatsExpanded}
-                setIsChatsExpanded={setIsChatsExpanded}
-              />
+              </Link>
             </div>
           </div>
 
           {/* Account Settings */}
-          <Suspense fallback={<Skeleton className="mt-1 h-10 w-10 rounded-xl" />}>
-            <AccountSettings />
-          </Suspense>
+          <AccountSettings />
         </nav>
       </div>
     );
@@ -248,7 +124,7 @@ const Nav = memo(
           <div
             data-testid="nav"
             className={cn(
-              'nav fixed left-0 top-0 z-[110] h-full bg-surface-primary-alt',
+              'nav fixed left-0 top-0 z-[200] h-full bg-surface-primary-alt',
               navVisible && 'active',
             )}
             style={{
@@ -267,7 +143,7 @@ const Nav = memo(
     // Desktop: Inline sidebar with width transition
     return (
       <div
-        className="flex-shrink-0 overflow-hidden"
+        className="z-[200] flex-shrink-0 overflow-visible"
         style={{ width: navVisible ? sidebarWidth : 0, transition: 'width 0.2s ease-out' }}
       >
         <motion.div
