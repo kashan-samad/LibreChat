@@ -22,6 +22,7 @@ interface BadgeRowContextType {
   codeApiKeyForm: ReturnType<typeof useCodeApiKeyForm>;
   searchApiKeyForm: ReturnType<typeof useSearchApiKeyForm>;
   mcpServerManager: ReturnType<typeof useMCPServerManager>;
+  nativeWebSearch: ReturnType<typeof useToolToggle>;
 }
 
 const BadgeRowContext = createContext<BadgeRowContextType | undefined>(undefined);
@@ -186,6 +187,13 @@ export default function BadgeRowProvider({
     isAuthenticated: true,
   });
 
+  const nativeWebSearch = useToolToggle({
+    conversationId,
+    toolKey: Tools.web_search,
+    localStorageKey: LocalStorageKeys.LAST_NATIVE_WEB_SEARCH_TOGGLE_,
+    isAuthenticated: true,
+  });
+
   const mcpServerManager = useMCPServerManager({ conversationId });
 
   const value: BadgeRowContextType = {
@@ -198,6 +206,7 @@ export default function BadgeRowProvider({
     codeInterpreter,
     searchApiKeyForm,
     mcpServerManager,
+    nativeWebSearch,
   };
 
   return <BadgeRowContext.Provider value={value}>{children}</BadgeRowContext.Provider>;
