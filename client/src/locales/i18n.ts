@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import { loadLayoutTranslationsSync } from './loadLayoutTranslations';
 
 // Import your JSON translations
 import translationEn from './en/translation.json';
@@ -43,7 +44,7 @@ import translationSl from './sl/translation.json';
 
 export const defaultNS = 'translation';
 
-export const resources = {
+const baseResources = {
   en: { translation: translationEn },
   ar: { translation: translationAr },
   bs: { translation: translationBs },
@@ -82,6 +83,11 @@ export const resources = {
   sl: { translation: translationSl },
   uk: { translation: translationUk },
 } as const;
+
+// Merge all layout translations into main resources
+export const resources = loadLayoutTranslationsSync(
+  JSON.parse(JSON.stringify(baseResources)),
+) as typeof baseResources;
 
 i18n
   .use(LanguageDetector)

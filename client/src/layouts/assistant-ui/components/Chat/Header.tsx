@@ -22,6 +22,7 @@ import {
   SheetTrigger,
 } from '~/../../packages/client/src/components/Sheet';
 import ChatHistory from './ChatHistory';
+import { useLocalize, TranslationKeys } from '~/hooks';
 
 const defaultInterface = getConfigDefaults().interface;
 
@@ -46,6 +47,8 @@ export default function Header() {
   });
 
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
+
+  const localize = useLocalize();
 
   return (
     <div className="via-presentation/70 md:from-presentation/80 md:via-presentation/50 2xl:from-presentation/0 absolute top-0 z-10 flex h-14 w-full items-center justify-between bg-gradient-to-b from-presentation to-transparent p-2 font-semibold text-text-primary 2xl:via-transparent">
@@ -72,15 +75,15 @@ export default function Header() {
             <SheetTrigger asChild>
               <button
                 className="ml-2 flex h-9 w-9 items-center justify-center rounded-lg text-text-primary transition-colors hover:bg-surface-secondary"
-                title="Chat History"
-                aria-label="Chat History"
+                title={localize('assistant_ui_chat_history' as TranslationKeys)}
+                aria-label={localize('assistant_ui_chat_history' as TranslationKeys)}
               >
                 <History className="h-5 w-5" />
               </button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[400px] p-0 sm:w-[540px]">
-              <SheetHeader className="border-b border-border-primary px-4 py-3">
-                <SheetTitle>{'Chat History'}</SheetTitle>
+              <SheetHeader className="border-border-primary border-b px-4 py-3">
+                <SheetTitle>{localize('assistant_ui_chat_history' as TranslationKeys)}</SheetTitle>
               </SheetHeader>
               <div className="h-[calc(100vh-60px)] overflow-hidden">
                 <ChatHistory onClose={() => setIsHistoryOpen(false)} />
