@@ -51,7 +51,7 @@ export function useDynamicComponent<T = any>(
         const layoutSpecificPath = `~/layouts/${currentLayout}/${cleanPath}`;
         const module = await import(/* @vite-ignore */ layoutSpecificPath);
         return module;
-      } catch (error) {
+      } catch (_error) {
         // Fallback to original path
         console.log(
           `Component not found in layout "${currentLayout}", falling back to default: ${cleanPath}`,
@@ -146,8 +146,10 @@ export async function dynamicImport<T = any>(
       // Try layout-specific path
       const layoutSpecificPath = `~/layouts/${layout}/${cleanPath}`;
       return await import(/* @vite-ignore */ layoutSpecificPath);
-    } catch (error) {
-      console.log(`Component not found in layout "${layout}", falling back to default: ${cleanPath}`);
+    } catch (_error) {
+      console.log(
+        `Component not found in layout "${layout}", falling back to default: ${cleanPath}`,
+      );
       // Fallback to original path
       return await import(/* @vite-ignore */ `~/${cleanPath}`);
     }

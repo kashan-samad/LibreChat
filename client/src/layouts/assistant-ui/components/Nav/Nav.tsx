@@ -5,7 +5,7 @@ import { useMediaQuery } from '@librechat/client';
 import { useLocalize, useAuthContext, useLocalStorage } from '~/hooks';
 import { useTitleGeneration } from '~/data-provider';
 import { cn } from '~/utils';
-import { MessageSquare, LayoutGrid } from 'lucide-react';
+import { MessageSquare, LayoutGrid, Database } from 'lucide-react';
 import AccountSettings from '~/components/Nav/AccountSettings';
 
 export const NAV_WIDTH = {
@@ -106,6 +106,18 @@ const Nav = memo(
                 aria-label="Agents"
               >
                 <LayoutGrid className="h-5 w-5" />
+              </Link>
+            </div>
+
+            {/* Enterprise Search Button */}
+            <div className="mb-2 w-full">
+              <Link
+                to="/enterprise-search"
+                className="hover:bg-surface-tertiary/80 flex h-10 w-10 items-center justify-center rounded-lg bg-surface-secondary text-text-primary transition-colors"
+                title="Enterprise Search"
+                aria-label="Enterprise Search"
+              >
+                <Database className="h-5 w-5" />
               </Link>
             </div>
           </div>
