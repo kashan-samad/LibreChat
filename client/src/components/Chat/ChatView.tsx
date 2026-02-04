@@ -1,4 +1,4 @@
-import { memo, useCallback, Suspense } from 'react';
+import { memo, useCallback } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useForm } from 'react-hook-form';
 import { Spinner } from '@librechat/client';
@@ -14,8 +14,9 @@ import MessagesView from './Messages/MessagesView';
 import Presentation from './Presentation';
 import ChatForm from './Input/ChatForm';
 import Landing from './Landing';
+import Header from './Header';
 import Footer from './Footer';
-import { cn, useLayoutComponent } from '~/utils';
+import { cn, getLayoutName, useLayoutComponent } from '~/utils';
 import store from '~/store';
 
 function LoadingSpinner() {
@@ -33,12 +34,8 @@ function ChatView({ index = 0 }: { index?: number }) {
   const rootSubmission = useRecoilValue(store.submissionByIndex(index));
   const centerFormOnLanding = useRecoilValue(store.centerFormOnLanding);
 
-  // Get current layout and dynamically load Header component
-  const { data: startupConfig } = useGetStartupConfig();
-  const layout = startupConfig?.interface?.layout ?? 'default';
-  const Header = useLayoutComponent('Chat/Header', layout);
-
   const fileMap = useFileMapContext();
+  const { data: config } = useGetStartupConfig();
 
   const { data: messagesTree = null, isLoading } = useGetMessagesByConvoId(conversationId ?? '', {
     select: useCallback(
@@ -64,6 +61,9 @@ function ChatView({ index = 0 }: { index?: number }) {
     defaultValues: { text: '' },
   });
 
+  const customLayout = getLayoutName(config);
+  const LayoutHeader = useLayoutComponent('Chat/Header', customLayout, Header);
+
   let content: JSX.Element | null | undefined;
   const isLandingPage =
     (!messagesTree || messagesTree.length === 0) &&
@@ -86,11 +86,7 @@ function ChatView({ index = 0 }: { index?: number }) {
         <AddedChatContext.Provider value={addedChatHelpers}>
           <Presentation>
             <div className="relative flex h-full w-full flex-col">
-              {!isLoading && (
-                <Suspense fallback={<div className="h-14 w-full bg-surface-primary" />}>
-                  <Header />
-                </Suspense>
-              )}
+              {!isLoading && <LayoutHeader />}
               <>
                 <div
                   className={cn(

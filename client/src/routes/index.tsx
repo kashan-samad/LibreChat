@@ -20,8 +20,7 @@ import ShareRoute from './ShareRoute';
 import ChatRoute from './ChatRoute';
 import Search from './Search';
 import Root from './Root';
-import { LayoutRoute } from './LayoutRoutes';
-import { getAllLayoutRoutes } from './mergeLayoutRoutes';
+import { addLayoutRoutes } from '~/utils';
 
 const AuthLayout = () => (
   <AuthContextProvider>
@@ -113,15 +112,7 @@ export const router = createBrowserRouter(
               path: 'search',
               element: <Search />,
             },
-            // Layout-specific routes are added dynamically below
-            ...Object.entries(getAllLayoutRoutes()).flatMap(([layoutName, routes]) =>
-              routes.map((route) => ({
-                ...route,
-                element: route.element ? (
-                  <LayoutRoute requiredLayout={layoutName}>{route.element}</LayoutRoute>
-                ) : null,
-              })),
-            ),
+            ...addLayoutRoutes(),
             {
               path: 'agents',
               element: (

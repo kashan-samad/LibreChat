@@ -1,0 +1,18 @@
+{
+  "chat_history": "Chat History",
+  "enterprise_search": "Enterprise Search",
+  "enterprise_search_placeholder": "Search across all enterprise data...",
+  "conversation_search": "Conversation Search",
+  "conversation_search_description": "Search through all your conversations and chat history to find specific discussions and insights.",
+  "document_search": "Document Search",
+  "document_search_description": "Search across all uploaded documents, files, and attachments for relevant information.",
+  "ai_powered_search": "AI-Powered Search",
+  "ai_powered_search_description": "Use natural language queries to find exactly what you're looking for with AI assistance.",
+  "no_recent_searches_yet": "No recent searches yet",
+  "quick_actions": "Quick Actions",
+  "advanced_search": "Advanced Search",
+  "saved_searches": "Saved Searches",
+  "search_filters": "Search Filters",
+  "export_results": "Export Results",
+  "recent_searches": "Recent Searches"
+}

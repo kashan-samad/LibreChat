@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useMediaQuery } from '@librechat/client';
 import type { ContextType } from '~/common';
@@ -17,20 +17,20 @@ import {
   FileMapContext,
 } from '~/Providers';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
-import { MobileNav, NAV_WIDTH } from '~/components/Nav';
+import { Nav, MobileNav, NAV_WIDTH } from '~/components/Nav';
 import { TermsAndConditionsModal } from '~/components/ui';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
-import { useLayoutComponent } from '~/utils/layoutComponentLoader';
+import { getLayoutName, useLayoutComponent, getLayoutExport } from '~/utils';
 
 export default function Root() {
-  const { data: startupConfig } = useGetStartupConfig();
   const [showTerms, setShowTerms] = useState(false);
   const [bannerHeight, setBannerHeight] = useState(0);
   const [navVisible, setNavVisible] = useState(() => {
     const savedNavVisible = localStorage.getItem('navVisible');
     return savedNavVisible !== null ? JSON.parse(savedNavVisible) : true;
   });
+  const [layoutNavWidth, setLayoutNavWidth] = useState(NAV_WIDTH);
 
   const { isAuthenticated, logout } = useAuthContext();
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
@@ -47,13 +47,21 @@ export default function Root() {
     enabled: isAuthenticated && config?.interface?.termsOfService?.modalAcceptance === true,
   });
 
+  const customLayout = getLayoutName(config);
+  const LayoutNav = useLayoutComponent('Nav/Nav', customLayout, Nav);
+
   useSearchEnabled(isAuthenticated);
 
-  // Get the current layout from config
-  const layout = startupConfig?.interface?.layout ?? 'default';
-
-  // Dynamically load the Nav component based on layout
-  const Nav = useLayoutComponent('Nav/Nav', layout);
+  useEffect(() => {
+    if (customLayout) {
+      getLayoutExport('Nav', 'NAV_WIDTH', customLayout, NAV_WIDTH).then((width) => {
+        setLayoutNavWidth(width);
+      });
+    } else {
+      // Reset to default NAV_WIDTH when no custom layout
+      setLayoutNavWidth(NAV_WIDTH);
+    }
+  }, [customLayout]);
 
   useEffect(() => {
     if (termsData) {
@@ -74,28 +82,6 @@ export default function Root() {
     return null;
   }
 
-  const LayoutElement = (
-    <>
-      <Suspense fallback={<div className="h-full w-64 bg-surface-primary-alt" />}>
-        <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
-      </Suspense>
-      <div
-        className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden"
-        style={
-          isSmallScreen
-            ? {
-                transform: navVisible ? `translateX(${NAV_WIDTH.MOBILE}px)` : 'translateX(0)',
-                transition: 'transform 0.2s ease-out',
-              }
-            : undefined
-        }
-      >
-        <MobileNav navVisible={navVisible} setNavVisible={setNavVisible} />
-        <Outlet context={{ navVisible, setNavVisible } satisfies ContextType} />
-      </div>
-    </>
-  );
-
   return (
     <SetConvoProvider>
       <FileMapContext.Provider value={fileMap}>
@@ -105,7 +91,23 @@ export default function Root() {
               <Banner onHeightChange={setBannerHeight} />
               <div className="flex" style={{ height: `calc(100dvh - ${bannerHeight}px)` }}>
                 <div className="relative z-0 flex h-full w-full overflow-hidden">
-                  {LayoutElement}
+                  <LayoutNav navVisible={navVisible} setNavVisible={setNavVisible} />
+                  <div
+                    className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden"
+                    style={
+                      isSmallScreen
+                        ? {
+                            transform: navVisible
+                              ? `translateX(${layoutNavWidth.MOBILE}px)`
+                              : 'translateX(0)',
+                            transition: 'transform 0.2s ease-out',
+                          }
+                        : undefined
+                    }
+                  >
+                    <MobileNav navVisible={navVisible} setNavVisible={setNavVisible} />
+                    <Outlet context={{ navVisible, setNavVisible } satisfies ContextType} />
+                  </div>
                 </div>
               </div>
             </PromptGroupsProvider>

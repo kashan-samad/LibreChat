@@ -1,7 +1,7 @@
 import type { Resource } from 'i18next';
 // Import translations from all layout folders
-import assistantUITranslationEn from '~/layouts/assistant-ui/locales/en/translation.json';
-import abcdTranslationEn from '~/layouts/abcd/locales/en/translation.json';
+import trivagoUITranslationEn from '~/layouts/trivago-ui/locales/en/translation.json';
+import testUITranslationEn from '~/layouts/test-ui/locales/en/translation.json';
 
 /**
  * Merges layout translations into the main translation resources.
@@ -16,16 +16,16 @@ export function mergeTranslations(resources: Resource): Resource {
     string,
     { prefix: string; translations: Record<string, Record<string, string>> }
   > = {
-    assistant_ui: {
-      prefix: 'assistant_ui_',
+    trivago_ui: {
+      prefix: 'trivago_ui_',
       translations: {
-        en: assistantUITranslationEn,
+        en: trivagoUITranslationEn,
       },
     },
-    abcd: {
-      prefix: 'abcd_',
+    test_ui: {
+      prefix: 'test_ui_',
       translations: {
-        en: abcdTranslationEn,
+        en: testUITranslationEn,
       },
     },
   };

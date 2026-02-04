@@ -29,7 +29,6 @@ export async function loadDefaultInterface({
 
   const loadedInterface: AppConfig['interfaceConfig'] = removeNullishValues({
     // UI elements - use schema defaults
-    layout: interfaceConfig?.layout ?? defaults.layout,
     endpointsMenu:
       interfaceConfig?.endpointsMenu ?? (hasModelSpecs ? false : defaults.endpointsMenu),
     modelSelect:
@@ -42,6 +41,7 @@ export async function loadDefaultInterface({
     termsOfService: interfaceConfig?.termsOfService ?? defaults.termsOfService,
     mcpServers: interfaceConfig?.mcpServers ?? defaults.mcpServers,
     customWelcome: interfaceConfig?.customWelcome ?? defaults.customWelcome,
+    customLayout: interfaceConfig?.customLayout ?? defaults.customLayout,
 
     // Permissions - only include if explicitly configured
     bookmarks: interfaceConfig?.bookmarks,

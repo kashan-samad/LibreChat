@@ -75,15 +75,15 @@ export default function Header() {
             <SheetTrigger asChild>
               <button
                 className="ml-2 flex h-9 w-9 items-center justify-center rounded-lg text-text-primary transition-colors hover:bg-surface-secondary"
-                title={localize('assistant_ui_chat_history' as TranslationKeys)}
-                aria-label={localize('assistant_ui_chat_history' as TranslationKeys)}
+                title={localize('trivago_ui_chat_history1' as TranslationKeys)}
+                aria-label={localize('trivago_ui_chat_history' as TranslationKeys)}
               >
                 <History className="h-5 w-5" />
               </button>
             </SheetTrigger>
             <SheetContent side="left" className="w-[400px] p-0 sm:w-[540px]">
               <SheetHeader className="border-border-primary border-b px-4 py-3">
-                <SheetTitle>{localize('assistant_ui_chat_history' as TranslationKeys)}</SheetTitle>
+                <SheetTitle>{localize('trivago_ui_chat_history' as TranslationKeys)}</SheetTitle>
               </SheetHeader>
               <div className="h-[calc(100vh-60px)] overflow-hidden">
                 <ChatHistory onClose={() => setIsHistoryOpen(false)} />
