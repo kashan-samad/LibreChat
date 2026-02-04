@@ -4,15 +4,15 @@ import type { RouteObject } from 'react-router-dom';
  * Dynamically imports routes from a layout
  * Uses dynamic import to avoid bundling all layout routes upfront
  */
-async function importLayoutRoutes(layout: string): Promise<RouteObject[]> {
-  try {
-    const module = await import(`~/layouts/${layout}/routes/index.tsx`);
-    return module[`${layout.replace(/-/g, '')}Routes`] || [];
-  } catch (error) {
-    console.log(`No routes found for layout: ${layout}`);
-    return [];
-  }
-}
+// async function importLayoutRoutes(layout: string): Promise<RouteObject[]> {
+//   try {
+//     const module = await import(`~/layouts/${layout}/routes/index.tsx`);
+//     return module[`${layout.replace(/-/g, '')}Routes`] || [];
+//   } catch (error) {
+//     console.log(`No routes found for layout: ${layout}`);
+//     return [];
+//   }
+// }
 
 /**
  * Gets all available layout routes by checking what layouts exist

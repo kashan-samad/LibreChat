@@ -14,13 +14,7 @@ import AddMultiConvo from '~/components/Chat/AddMultiConvo';
 import { useHasAccess } from '~/hooks';
 import { cn } from '~/utils';
 import { History } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '~/../../packages/client/src/components/Sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './../Sheet';
 import ChatHistory from './ChatHistory';
 import { useLocalize, TranslationKeys } from '~/hooks';
 
