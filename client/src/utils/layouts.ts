@@ -209,7 +209,7 @@ Object.keys(layoutRouteModules).forEach((path) => {
   if (match) {
     const layoutName = match[1];
     const module = layoutRouteModules[path];
-    // Look for exported routes with naming convention: assistantUIRoutes, abcdRoutes, etc.
+    // Look for exported routes with naming convention
     const routesKey = Object.keys(module).find((key) => key.endsWith('Routes'));
     if (routesKey) {
       layoutRoutesMap[layoutName] = module[routesKey] as RouteObject[];
