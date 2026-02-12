@@ -8,13 +8,16 @@ import {
   Permissions,
   ArtifactModes,
   PermissionTypes,
+  LocalStorageKeys,
   defaultAgentCapabilities,
 } from 'librechat-data-provider';
-import { useLocalize, useHasAccess, useAgentCapabilities } from '~/hooks';
+import { useLocalize, useHasAccess, useAgentCapabilities, useSetIndexOptions } from '~/hooks';
 import ArtifactsSubMenu from '~/components/Chat/Input/ArtifactsSubMenu';
 import MCPSubMenu from '~/components/Chat/Input/MCPSubMenu';
 import { useGetStartupConfig } from '~/data-provider';
 import { useBadgeRowContext } from '~/Providers';
+import { useChatContext } from '~/Providers/ChatContext';
+import useLocalStorage from '~/hooks/useLocalStorageAlt';
 import { cn } from '~/utils';
 
 interface ToolsDropdownProps {
@@ -27,7 +30,6 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
   const [isPopoverActive, setIsPopoverActive] = useState(false);
   const {
     webSearch,
-    nativeWebSearch,
     artifacts,
     fileSearch,
     agentsConfig,
@@ -37,6 +39,8 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     searchApiKeyForm,
   } = useBadgeRowContext();
   const { data: startupConfig } = useGetStartupConfig();
+  const { conversation } = useChatContext();
+  const { setOption } = useSetIndexOptions();
 
   const { codeEnabled, webSearchEnabled, artifactsEnabled, fileSearchEnabled } =
     useAgentCapabilities(agentsConfig?.capabilities ?? defaultAgentCapabilities);
@@ -50,8 +54,10 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
     setIsPinned: setIsSearchPinned,
     authData: webSearchAuthData,
   } = webSearch;
-  const { isPinned: isNativeWebSearchPinned, setIsPinned: setIsNativeWebSearchPinned } =
-    nativeWebSearch;
+  const [isNativeWebSearchPinned, setIsNativeWebSearchPinned] = useLocalStorage<boolean>(
+    `${LocalStorageKeys.LAST_NATIVE_WEB_SEARCH_TOGGLE_}pinned`,
+    false,
+  );
   const {
     isPinned: isCodePinned,
     setIsPinned: setIsCodePinned,
@@ -99,9 +105,9 @@ const ToolsDropdown = ({ disabled }: ToolsDropdownProps) => {
   }, [webSearch]);
 
   const handleNativeWebSearchToggle = useCallback(() => {
-    const newValue = !nativeWebSearch.toggleState;
-    nativeWebSearch.debouncedChange({ value: newValue });
-  }, [nativeWebSearch]);
+    const currentValue = conversation?.web_search ?? false;
+    setOption('web_search')(!currentValue);
+  }, [conversation?.web_search, setOption]);
 
   const handleCodeInterpreterToggle = useCallback(() => {
     const newValue = !codeInterpreter.toggleState;
