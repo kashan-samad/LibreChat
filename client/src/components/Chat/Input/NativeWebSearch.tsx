@@ -1,8 +1,8 @@
 import React, { memo } from 'react';
 import { Globe } from 'lucide-react';
 import { CheckboxButton } from '@librechat/client';
-import { LocalStorageKeys } from 'librechat-data-provider';
-import { useLocalize, useSetIndexOptions } from '~/hooks';
+import { LocalStorageKeys, Permissions, PermissionTypes } from 'librechat-data-provider';
+import { useLocalize, useSetIndexOptions, useHasAccess } from '~/hooks';
 import useLocalStorage from '~/hooks/useLocalStorageAlt';
 import { useChatContext } from '~/Providers/ChatContext';
 
@@ -14,6 +14,17 @@ function NativeWebSearch() {
     `${LocalStorageKeys.LAST_NATIVE_WEB_SEARCH_TOGGLE_}pinned`,
     false,
   );
+
+  // Only show native web search if user doesn't have permission for authenticated web search
+  const canUseWebSearch = useHasAccess({
+    permissionType: PermissionTypes.WEB_SEARCH,
+    permission: Permissions.USE,
+  });
+
+  // Don't render if user has access to authenticated web search
+  if (canUseWebSearch) {
+    return null;
+  }
 
   // Use conversation.web_search as the single source of truth
   const webSearchEnabled = conversation?.web_search ?? false;
