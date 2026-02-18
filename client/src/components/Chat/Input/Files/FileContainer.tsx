@@ -1,3 +1,4 @@
+import React from 'react';
 import type { TFile } from 'librechat-data-provider';
 import type { ExtendedFile } from '~/common';
 import { getFileType, cn } from '~/utils';
@@ -11,6 +12,7 @@ const FileContainer = ({
   containerClassName,
   onDelete,
   onClick,
+  purposePill,
 }: {
   file: Partial<ExtendedFile | TFile>;
   overrideType?: string;
@@ -18,6 +20,7 @@ const FileContainer = ({
   containerClassName?: string;
   onDelete?: () => void;
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  purposePill?: React.ReactNode;
 }) => {
   const fileType = getFileType(overrideType ?? file.type);
 
@@ -41,9 +44,13 @@ const FileContainer = ({
               <div className="truncate font-medium" title={file.filename}>
                 {file.filename}
               </div>
-              <div className="truncate text-text-secondary" title={fileType.title}>
-                {fileType.title}
-              </div>
+              {purposePill != null ? (
+                <div className="mt-0.5">{purposePill}</div>
+              ) : (
+                <div className="truncate text-text-secondary" title={fileType.title}>
+                  {fileType.title}
+                </div>
+              )}
             </div>
           </div>
         </div>

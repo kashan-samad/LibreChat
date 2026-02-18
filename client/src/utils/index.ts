@@ -27,6 +27,7 @@ export * from './share';
 export * from './timestamps';
 export { default as cn } from './cn';
 export { default as logger } from './logger';
+export { getSmartDefault } from './getSmartDefault';
 export { default as scaleImage } from './scaleImage';
 export { default as getLoginError } from './getLoginError';
 export { default as cleanupPreset } from './cleanupPreset';

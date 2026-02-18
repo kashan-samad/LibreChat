@@ -7,6 +7,7 @@ import {
   QueryKeys,
   Constants,
   EToolResources,
+  FileSources,
   mergeFileConfig,
   isAssistantsEndpoint,
   getEndpointFileConfig,
@@ -15,7 +16,7 @@ import {
 import debounce from 'lodash/debounce';
 import type { TEndpointsConfig, TError } from 'librechat-data-provider';
 import type { ExtendedFile, FileSetter } from '~/common';
-import { useGetFileConfig, useUploadFileMutation } from '~/data-provider';
+import { useGetFileConfig, useUploadFileMutation, useDeleteFilesMutation } from '~/data-provider';
 import useLocalize, { TranslationKeys } from '~/hooks/useLocalize';
 import { useDelayedUploadToast } from './useDelayedUploadToast';
 import { processFileForUpload } from '~/utils/heicConverter';
@@ -156,6 +157,7 @@ const useFileHandling = (params?: UseFileHandling) => {
   );
 
   const startUpload = async (extendedFile: ExtendedFile) => {
+    console.log('starting upload for file', extendedFile);
     const filename = extendedFile.file?.name ?? 'File';
     startUploadTimer(extendedFile.file_id, filename, extendedFile.size);
 
@@ -425,9 +427,71 @@ const useFileHandling = (params?: UseFileHandling) => {
     }
   };
 
+  const { mutateAsync: deleteFilesAsync } = useDeleteFilesMutation();
+
+  /**
+   * Changes the upload purpose (tool_resource) for an already-uploaded file.
+   * Updates the existing card in place (same file_id) — resets progress to show
+   * re-upload is happening — then deletes the old server file and re-uploads with
+   * the new tool_resource. The card is never removed so there is no flicker and no
+   * duplicate cards appear.
+   */
+  const changePurpose = useCallback(
+    async (extendedFile: ExtendedFile, newToolResource: EToolResources | undefined) => {
+      if (!extendedFile.file) {
+        return;
+      }
+
+      // Update card in-place: show new purpose label immediately and reset progress.
+      // Keep temp_file_id so replaceFile can locate the correct Map entry even when
+      // the Map key is still the temp id and file_id has been updated to the server id.
+      const inProgressFile: ExtendedFile = {
+        ...extendedFile,
+        tool_resource: newToolResource,
+        progress: 0.1,
+        filepath: undefined,
+        source: undefined,
+        embedded: false,
+      };
+      replaceFile(inProgressFile);
+
+      try {
+        // Delete the old server-side file if it was fully uploaded
+        if (extendedFile.filepath && extendedFile.progress >= 1) {
+          await deleteFilesAsync({
+            files: [
+              {
+                file_id: extendedFile.file_id,
+                filepath: extendedFile.filepath,
+                source: (extendedFile.source as FileSources) ?? FileSources.local,
+                embedded: extendedFile.embedded ?? false,
+              },
+            ],
+          });
+        }
+
+        // Re-upload the same local file under the new tool_resource
+        const isImage = extendedFile.file.type.startsWith('image/');
+        if (isImage && extendedFile.preview) {
+          loadImage(inProgressFile, extendedFile.preview);
+        } else {
+          await startUpload(inProgressFile);
+        }
+      } catch (err) {
+        // Restore card to previous state on failure
+        replaceFile(extendedFile);
+        logger.error('files', 'changePurpose failed', err);
+        setError('com_error_files_upload');
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deleteFilesAsync, replaceFile, startUpload, loadImage, setError],
+  );
+
   return {
     handleFileChange,
     handleFiles,
+    changePurpose,
     abortUpload,
     setFiles,
     files,

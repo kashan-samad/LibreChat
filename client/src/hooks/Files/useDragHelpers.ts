@@ -8,7 +8,6 @@ import {
   Tools,
   QueryKeys,
   Constants,
-  inferMimeType,
   EToolResources,
   EModelEndpoint,
   mergeFileConfig,
@@ -22,6 +21,7 @@ import type * as t from 'librechat-data-provider';
 import store, { ephemeralAgentByConvoId } from '~/store';
 import useFileHandling from './useFileHandling';
 import { isEphemeralAgent } from '~/common';
+import { getSmartDefault } from '~/utils';
 import useLocalize from '../useLocalize';
 
 export default function useDragHelpers() {
@@ -42,20 +42,16 @@ export default function useDragHelpers() {
 
   const { handleFiles } = useFileHandling();
 
+  /**
+   * Kept for backward-compatibility with DragDropWrapper; no longer shows a chooser dialog.
+   * The tool_resource argument is ignored — smart defaults are applied per-file on drop.
+   */
   const handleOptionSelect = useCallback(
-    (toolResource: EToolResources | undefined) => {
-      /** File search is not automatically enabled to simulate legacy behavior */
-      if (toolResource && toolResource !== EToolResources.file_search) {
-        setEphemeralAgent((prev) => ({
-          ...prev,
-          [toolResource]: true,
-        }));
-      }
-      handleFiles(draggedFiles, toolResource);
+    (_toolResource: EToolResources | undefined) => {
       setShowModal(false);
       setDraggedFiles([]);
     },
-    [draggedFiles, handleFiles, setEphemeralAgent],
+    [],
   );
 
   /** Use refs to avoid re-creating the drop handler */
@@ -118,26 +114,29 @@ export default function useDragHelpers() {
         }
       }
 
-      /** Determine if dragged files are all images (enables the base image option) */
-      const allImages = item.files.every((f) =>
-        inferMimeType(f.name, f.type)?.startsWith('image/'),
-      );
+      const capabilityContext = { fileSearchEnabled, codeEnabled, contextEnabled };
 
-      const shouldShowModal =
-        allImages ||
-        (fileSearchEnabled && fileSearchAllowedByAgent) ||
-        (codeEnabled && codeAllowedByAgent) ||
-        contextEnabled;
-
-      if (!shouldShowModal) {
-        // Fallback: directly handle files without showing modal
-        handleFilesRef.current(item.files);
-        return;
+      /**
+       * Apply smart defaults per-file and activate the required ephemeral agent capabilities
+       * so the backend routes each file correctly without any user interaction.
+       */
+      for (const file of item.files) {
+        const toolResource = getSmartDefault(
+          file,
+          capabilityContext,
+          fileSearchAllowedByAgent,
+          codeAllowedByAgent,
+        );
+        if (toolResource && toolResource !== EToolResources.file_search) {
+          setEphemeralAgent((prev) => ({
+            ...prev,
+            [toolResource]: true,
+          }));
+        }
+        handleFilesRef.current([file], toolResource);
       }
-      setDraggedFiles(item.files);
-      setShowModal(true);
     },
-    [isAssistants, queryClient, showToast, localize],
+    [isAssistants, queryClient, showToast, localize, setEphemeralAgent],
   );
 
   const [{ canDrop, isOver }, drop] = useDrop(

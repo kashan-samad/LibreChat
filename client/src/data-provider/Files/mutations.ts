@@ -21,6 +21,7 @@ export const useUploadFileMutation = (
   FormData, // request
   unknown // context
 > => {
+  console.log('useUploadFileMutation called with options', _options);
   const queryClient = useQueryClient();
   const { onSuccess, ...options } = _options || {};
   return useMutation([MutationKeys.fileUpload], {

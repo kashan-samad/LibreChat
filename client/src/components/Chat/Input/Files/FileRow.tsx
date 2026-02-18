@@ -1,11 +1,23 @@
 import { useEffect } from 'react';
+import { useRecoilValue } from 'recoil';
 import { useToastContext } from '@librechat/client';
-import { EToolResources } from 'librechat-data-provider';
+import {
+  EToolResources,
+  defaultAgentCapabilities,
+  isDocumentSupportedProvider,
+} from 'librechat-data-provider';
 import type { ExtendedFile } from '~/common';
 import { useDeleteFilesMutation } from '~/data-provider';
-import { useFileDeletion } from '~/hooks/Files';
+import {
+  useFileDeletion,
+  useAgentCapabilities,
+  useAgentToolPermissions,
+  useGetAgentsConfig,
+  useLocalize,
+} from '~/hooks';
+import store, { ephemeralAgentByConvoId } from '~/store';
 import FileContainer from './FileContainer';
-import { useLocalize } from '~/hooks';
+import PurposePill from './PurposePill';
 import { logger } from '~/utils';
 import Image from './Image';
 
@@ -18,6 +30,8 @@ export default function FileRow({
   agent_id,
   tool_resource,
   fileFilter,
+  showPurposePill = false,
+  onPurposeChange,
   isRTL = false,
   Wrapper,
 }: {
@@ -29,6 +43,8 @@ export default function FileRow({
   assistant_id?: string;
   agent_id?: string;
   tool_resource?: EToolResources;
+  showPurposePill?: boolean;
+  onPurposeChange?: (file: ExtendedFile, newResource: EToolResources | undefined) => void;
   isRTL?: boolean;
   Wrapper?: React.FC<{ children: React.ReactNode }>;
 }) {
@@ -56,6 +72,21 @@ export default function FileRow({
   });
 
   const { deleteFile } = useFileDeletion({ mutateAsync, agent_id, assistant_id, tool_resource });
+
+  /* ---- Purpose-pill capability context (only used when showPurposePill = true) ---- */
+  const conversation = useRecoilValue(store.conversationByIndex(0)) || undefined;
+  const ephemeralAgent = useRecoilValue(
+    ephemeralAgentByConvoId(conversation?.conversationId ?? ''),
+  );
+  const { agentsConfig } = useGetAgentsConfig();
+  const capabilities = useAgentCapabilities(agentsConfig?.capabilities ?? defaultAgentCapabilities);
+  const { fileSearchAllowedByAgent, codeAllowedByAgent, provider } = useAgentToolPermissions(
+    conversation?.agent_id,
+    ephemeralAgent,
+  );
+  const providerSupportsDocuments =
+    isDocumentSupportedProvider(conversation?.endpointType) ||
+    isDocumentSupportedProvider(provider ?? conversation?.endpoint);
 
   useEffect(() => {
     if (files.length === 0) {
@@ -109,7 +140,7 @@ export default function FileRow({
             },
             { map: new Map(), uniqueFiles: [] as ExtendedFile[] },
           )
-          .uniqueFiles.map((file: ExtendedFile, index: number) => {
+          .uniqueFiles.map((file: ExtendedFile) => {
             const handleDelete = () => {
               showToast({
                 message: localize('com_ui_deleting_file'),
@@ -124,7 +155,7 @@ export default function FileRow({
 
             return (
               <div
-                key={index}
+                key={file.file_id}
                 style={{
                   flexBasis: '70px',
                   flexGrow: 0,
@@ -139,7 +170,25 @@ export default function FileRow({
                     source={file.source}
                   />
                 ) : (
-                  <FileContainer file={file} onDelete={handleDelete} />
+                  <FileContainer
+                    file={file}
+                    onDelete={handleDelete}
+                    purposePill={
+                      showPurposePill ? (
+                        <PurposePill
+                          toolResource={file.tool_resource as EToolResources | undefined}
+                          fileSearchEnabled={capabilities.fileSearchEnabled}
+                          fileSearchAllowedByAgent={fileSearchAllowedByAgent}
+                          contextEnabled={capabilities.contextEnabled}
+                          codeEnabled={capabilities.codeEnabled}
+                          codeAllowedByAgent={codeAllowedByAgent}
+                          providerSupportsDocuments={providerSupportsDocuments}
+                          disabled={file.progress < 1}
+                          onPurposeChange={(newResource) => onPurposeChange?.(file, newResource)}
+                        />
+                      ) : undefined
+                    }
+                  />
                 )}
               </div>
             );
