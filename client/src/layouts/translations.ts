@@ -1,7 +1,6 @@
 import type { Resource } from 'i18next';
 // Import translations from all layout folders
 import trivagoUITranslationEn from '~/layouts/trivago-ui/locales/en/translation.json';
-import testUITranslationEn from '~/layouts/test-ui/locales/en/translation.json';
 
 /**
  * Merges layout translations into the main translation resources.
@@ -20,12 +19,6 @@ export function mergeTranslations(resources: Resource): Resource {
       prefix: 'trivago_ui_',
       translations: {
         en: trivagoUITranslationEn,
-      },
-    },
-    test_ui: {
-      prefix: 'test_ui_',
-      translations: {
-        en: testUITranslationEn,
       },
     },
   };

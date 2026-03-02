@@ -5,18 +5,17 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { getConfigDefaults, PermissionTypes, Permissions } from 'librechat-data-provider';
 import type { ContextType } from '~/common';
 import { PresetsMenu, HeaderNewChat, OpenSidebar } from '~/components/Chat/Menus';
-import ModelSelector from '~/Components/Chat/Menus/Endpoints/ModelSelector';
+import ModelSelector from '~/components/Chat/Menus/Endpoints/ModelSelector';
 import { useGetStartupConfig } from '~/data-provider';
 import ExportAndShareMenu from '~/components/Chat/ExportAndShareMenu';
 import BookmarkMenu from '~/components/Chat/Menus/BookmarkMenu';
 import { TemporaryChat } from '~/components/Chat/TemporaryChat';
 import AddMultiConvo from '~/components/Chat/AddMultiConvo';
-import { useHasAccess } from '~/hooks';
+import { useHasAccess, useLocalize, TranslationKeys } from '~/hooks';
 import { cn } from '~/utils';
 import { History } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './../Sheet';
 import ChatHistory from './ChatHistory';
-import { useLocalize, TranslationKeys } from '~/hooks';
 
 const defaultInterface = getConfigDefaults().interface;
 
@@ -69,7 +68,7 @@ export default function Header() {
             <SheetTrigger asChild>
               <button
                 className="ml-2 flex h-9 w-9 items-center justify-center rounded-lg text-text-primary transition-colors hover:bg-surface-secondary"
-                title={localize('trivago_ui_chat_history1' as TranslationKeys)}
+                title={localize('trivago_ui_chat_history' as TranslationKeys)}
                 aria-label={localize('trivago_ui_chat_history' as TranslationKeys)}
               >
                 <History className="h-5 w-5" />

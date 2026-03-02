@@ -53,14 +53,25 @@ export default function Root() {
   useSearchEnabled(isAuthenticated);
 
   useEffect(() => {
+    let isActive = true;
+
     if (customLayout) {
-      getLayoutExport('Nav', 'NAV_WIDTH', customLayout, NAV_WIDTH).then((width) => {
-        setLayoutNavWidth(width);
-      });
+      getLayoutExport('Nav', 'NAV_WIDTH', customLayout, NAV_WIDTH)
+        .then((width) => {
+          if (isActive) {
+            setLayoutNavWidth(width);
+          }
+        })
+        .catch(() => {
+          // Optionally log or handle errors; ignore to preserve existing behavior
+        });
     } else {
       // Reset to default NAV_WIDTH when no custom layout
       setLayoutNavWidth(NAV_WIDTH);
     }
+    return () => {
+      isActive = false;
+    };
   }, [customLayout]);
 
   useEffect(() => {

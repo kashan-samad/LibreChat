@@ -152,14 +152,25 @@ export async function getLayoutExport<T = any>(
     }
   }
 
-  // Fallback to the component file directly
-  const componentFilePath = `/src/layouts/${currentLayout}/components/${normalizedPath}/${normalizedPath.split('/').pop()}.tsx`;
-  if (layoutComponents[componentFilePath]) {
+  // Fallback to the component file directly, trying .tsx then .ts
+  const componentFileBase = `/src/layouts/${currentLayout}/components/${normalizedPath}`;
+  const componentFileTsx = `${componentFileBase}.tsx`;
+  if (layoutComponents[componentFileTsx]) {
     try {
-      const module = await layoutComponents[componentFilePath]();
+      const module = await layoutComponents[componentFileTsx]();
       return (module as any)[exportName] ?? defaultValue;
     } catch (error) {
-      console.warn(`Failed to load ${exportName} from ${componentFilePath}:`, error);
+      console.warn(`Failed to load ${exportName} from ${componentFileTsx}:`, error);
+      return defaultValue;
+    }
+  }
+  const componentFileTs = `${componentFileBase}.ts`;
+  if (layoutComponents[componentFileTs]) {
+    try {
+      const module = await layoutComponents[componentFileTs]();
+      return (module as any)[exportName] ?? defaultValue;
+    } catch (error) {
+      console.warn(`Failed to load ${exportName} from ${componentFileTs}:`, error);
       return defaultValue;
     }
   }
@@ -232,7 +243,11 @@ export function addLayoutRoutes() {
     routes.map((route) => ({
       ...route,
       element: route.element
-        ? React.createElement(LayoutRoute, { requiredLayout: layoutName }, route.element)
+        ? React.createElement(
+            LayoutRoute,
+            { requiredLayout: layoutName, currentLayout: layoutName },
+            route.element,
+          )
         : null,
     })),
   );
