@@ -14,7 +14,7 @@ const {
 const { findAllArtifacts, replaceArtifactContent } = require('~/server/services/Artifacts/update');
 const { requireJwtAuth, validateMessageReq } = require('~/server/middleware');
 const { getConvosQueried } = require('~/models/Conversation');
-const { Message } = require('~/db/models');
+const { Message, Conversation } = require('~/db/models');
 
 const router = express.Router();
 router.use(requireJwtAuth);
@@ -63,38 +63,43 @@ router.get('/', async (req, res) => {
       }
       response = { messages, nextCursor };
     } else if (search) {
-      const searchResults = await Message.meiliSearch(search, { filter: `user = "${user}"` }, true);
+      const [searchResults, titleSearchResults] = await Promise.all([
+        Message.meiliSearch(search, { filter: `user = "${user}"` }, true),
+        Conversation.meiliSearch(search, { filter: `user = "${user}"` }),
+      ]);
 
       const messages = searchResults.hits || [];
+      const titleHits = titleSearchResults.hits || [];
 
-      const result = await getConvosQueried(req.user.id, messages, cursor);
+      const conversationIdsSet = new Set(
+        messages.filter((m) => m?.conversationId).map((m) => m.conversationId),
+      );
+      const convoRefs = [
+        ...conversationIdsSet,
+        ...titleHits
+          .filter((c) => c?.conversationId && !conversationIdsSet.has(c.conversationId))
+          .map((c) => {
+            conversationIdsSet.add(c.conversationId);
+            return c.conversationId;
+          }),
+      ].map((id) => ({ conversationId: id }));
 
-      const messageIds = [];
-      const cleanedMessages = [];
-      for (let i = 0; i < messages.length; i++) {
-        let message = messages[i];
-        if (result.convoMap[message.conversationId]) {
-          messageIds.push(message.messageId);
-          cleanedMessages.push(message);
-        }
-      }
+      const result = await getConvosQueried(req.user.id, convoRefs, cursor);
+
+      const cleanedMessages = messages.filter((m) => result.convoMap[m.conversationId]);
+      const messageIds = cleanedMessages.map((m) => m.messageId);
 
       const dbMessages = await getMessages({
         user,
         messageId: { $in: messageIds },
       });
 
-      const dbMessageMap = {};
-      for (const dbMessage of dbMessages) {
-        dbMessageMap[dbMessage.messageId] = dbMessage;
-      }
+      const dbMessageMap = Object.fromEntries(dbMessages.map((m) => [m.messageId, m]));
 
-      const activeMessages = [];
-      for (const message of cleanedMessages) {
+      const activeMessages = cleanedMessages.map((message) => {
         const convo = result.convoMap[message.conversationId];
         const dbMessage = dbMessageMap[message.messageId];
-
-        activeMessages.push({
+        return {
           ...message,
           title: convo.title,
           conversationId: message.conversationId,
@@ -102,7 +107,46 @@ router.get('/', async (req, res) => {
           isCreatedByUser: dbMessage?.isCreatedByUser,
           endpoint: dbMessage?.endpoint,
           iconURL: dbMessage?.iconURL,
-        });
+        };
+      });
+
+      const messageConversationIds = new Set(cleanedMessages.map((m) => m.conversationId));
+      const titleOnlyConversationIds = result.conversations
+        .filter((c) => !messageConversationIds.has(c.conversationId))
+        .map((c) => c.conversationId);
+
+      if (titleOnlyConversationIds.length > 0) {
+        const latestMessages = await Message.aggregate([
+          {
+            $match: {
+              user,
+              conversationId: { $in: titleOnlyConversationIds },
+            },
+          },
+          { $sort: { conversationId: 1, updatedAt: -1 } },
+          {
+            $group: {
+              _id: '$conversationId',
+              message: { $first: '$$ROOT' },
+            },
+          },
+        ]);
+
+        latestMessages
+          .map((entry) => entry?.message)
+          .filter((latest) => latest?.conversationId && result.convoMap[latest.conversationId])
+          .forEach((latest) => {
+            const convo = result.convoMap[latest.conversationId];
+            activeMessages.push({
+              ...latest,
+              title: convo.title,
+              conversationId: latest.conversationId,
+              model: convo.model,
+              isCreatedByUser: latest.isCreatedByUser,
+              endpoint: latest.endpoint,
+              iconURL: latest.iconURL,
+            });
+          });
       }
 
       response = { messages: activeMessages, nextCursor: null };
