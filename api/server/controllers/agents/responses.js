@@ -1,4 +1,3 @@
-const { nanoid } = require('nanoid');
 const { v4: uuidv4 } = require('uuid');
 const { logger } = require('@librechat/data-schemas');
 const { Callback, ToolEndHandler, formatAgentMessages } = require('@librechat/agents');
@@ -39,6 +38,8 @@ const {
 } = require('~/server/controllers/agents/callbacks');
 const { loadAgentTools, loadToolsForExecution } = require('~/server/services/ToolService');
 const { findAccessibleResources } = require('~/server/services/PermissionService');
+const { saveBase64Image } = require('~/server/services/Files/process');
+const { FileContext } = require('librechat-data-provider');
 const db = require('~/models');
 
 /** @type {import('@librechat/api').AppConfig | null} */
@@ -142,17 +143,68 @@ async function loadPreviousMessages(conversationId, userId) {
  * @param {string} agentId
  * @returns {Promise<void>}
  */
+async function persistImageParts(req, contentParts) {
+  const files = [];
+  for (const part of contentParts) {
+    if (part.type !== 'image_url') {
+      continue;
+    }
+    const url = part.image_url?.url ?? part.image_url;
+    if (typeof url !== 'string' || !url.startsWith('data:')) {
+      continue;
+    }
+    try {
+      const file = await saveBase64Image(url, {
+        req,
+        filename: 'image.png',
+        endpoint: EModelEndpoint.agents,
+        context: FileContext.message_attachment,
+      });
+      if (file) {
+        files.push({
+          type: file.type,
+          file_id: file.file_id,
+          filepath: file.filepath,
+          filename: file.filename,
+          embedded: file.embedded ?? false,
+          metadata: file.metadata ?? null,
+          height: file.height,
+          width: file.width,
+        });
+      }
+    } catch (err) {
+      logger.warn('[Responses API] Failed to persist image part:', err.message);
+    }
+  }
+  return files;
+}
+
 async function saveInputMessages(req, conversationId, inputMessages, agentId) {
+  let userMessageId;
   for (const msg of inputMessages) {
     if (msg.role === 'user') {
+      userMessageId = msg.messageId || uuidv4();
+
+      const contentParts = Array.isArray(msg.content) ? msg.content : [];
+      const files = contentParts.length > 0 ? await persistImageParts(req, contentParts) : [];
+
+      const textContent = typeof msg.content === 'string'
+        ? msg.content
+        : contentParts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+
       await db.saveMessage(
-        req,
         {
-          messageId: msg.messageId || nanoid(),
+          userId: req?.user?.id,
+          isTemporary: req?.body?.isTemporary,
+          interfaceConfig: req?.config?.interfaceConfig,
+        },
+        {
+          messageId: userMessageId,
           conversationId,
-          parentMessageId: null,
+          parentMessageId: '00000000-0000-0000-0000-000000000000',
           isCreatedByUser: true,
-          text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+          text: textContent,
+          ...(files.length > 0 && { files }),
           sender: 'User',
           endpoint: EModelEndpoint.agents,
           model: agentId,
@@ -161,6 +213,7 @@ async function saveInputMessages(req, conversationId, inputMessages, agentId) {
       );
     }
   }
+  return userMessageId;
 }
 
 /**
@@ -172,7 +225,7 @@ async function saveInputMessages(req, conversationId, inputMessages, agentId) {
  * @param {string} agentId
  * @returns {Promise<void>}
  */
-async function saveResponseOutput(req, conversationId, responseId, response, agentId) {
+async function saveResponseOutput(req, conversationId, responseId, response, agentId, userMessageId, agent) {
   // Extract text content from output items
   let responseText = '';
   for (const item of response.output) {
@@ -187,14 +240,20 @@ async function saveResponseOutput(req, conversationId, responseId, response, age
 
   // Save the assistant message
   await db.saveMessage(
-    req,
     {
-      messageId: responseId,
+      userId: req?.user?.id,
+      isTemporary: req?.body?.isTemporary,
+      interfaceConfig: req?.config?.interfaceConfig,
+    },
+    {
+      messageId: uuidv4(),
       conversationId,
-      parentMessageId: null,
+      parentMessageId: userMessageId ?? '00000000-0000-0000-0000-000000000000',
       isCreatedByUser: false,
       text: responseText,
-      sender: 'Agent',
+      content: [{ type: 'text', text: responseText }],
+      attachments: [],
+      sender: agent?.name || 'Agent',
       endpoint: EModelEndpoint.agents,
       model: agentId,
       finish_reason: response.status === 'completed' ? 'stop' : response.status,
@@ -222,7 +281,7 @@ async function saveConversation(req, conversationId, agentId, agent) {
     {
       conversationId,
       endpoint: EModelEndpoint.agents,
-      agentId,
+      agent_id: agentId,
       title: agent?.name || 'Open Responses Conversation',
       model: agent?.model,
     },
@@ -383,9 +442,18 @@ const createResponse = async (req, res) => {
     }
 
     // Convert input to internal messages
-    const inputMessages = convertToInternalMessages(
-      typeof request.input === 'string' ? request.input : request.input,
-    );
+    let resolvedInput = request.input;
+    if (typeof resolvedInput === 'string') {
+      try {
+        const parsed = JSON.parse(resolvedInput);
+        if (Array.isArray(parsed)) {
+          resolvedInput = parsed;
+        }
+      } catch {
+        // not JSON — treat as plain text string
+      }
+    }
+    const inputMessages = convertToInternalMessages(resolvedInput);
 
     // Merge previous messages with new input
     const allMessages = [...previousMessages, ...inputMessages];
@@ -565,15 +633,15 @@ const createResponse = async (req, res) => {
       // Save to database if store: true
       if (request.store === true) {
         try {
-          // Save conversation
-          await saveConversation(req, conversationId, agentId, agent);
-
           // Save input messages
-          await saveInputMessages(req, conversationId, inputMessages, agentId);
+          const userMessageId = await saveInputMessages(req, conversationId, inputMessages, agentId);
 
           // Build response for saving (use tracker with buildResponse for streaming)
           const finalResponse = buildResponse(context, tracker, 'completed');
-          await saveResponseOutput(req, conversationId, responseId, finalResponse, agentId);
+          await saveResponseOutput(req, conversationId, responseId, finalResponse, agentId, userMessageId, agent);
+
+          // Save conversation last so saveConvo's internal getMessages query finds the saved messages
+          await saveConversation(req, conversationId, agentId, agent);
 
           logger.debug(
             `[Responses API] Stored response ${responseId} in conversation ${conversationId}`,
@@ -729,11 +797,12 @@ const createResponse = async (req, res) => {
 
       if (request.store === true) {
         try {
+          const userMessageId = await saveInputMessages(req, conversationId, inputMessages, agentId);
+
+          await saveResponseOutput(req, conversationId, responseId, response, agentId, userMessageId, agent);
+
+          // Save conversation last so saveConvo's internal getMessages query finds the saved messages
           await saveConversation(req, conversationId, agentId, agent);
-
-          await saveInputMessages(req, conversationId, inputMessages, agentId);
-
-          await saveResponseOutput(req, conversationId, responseId, response, agentId);
 
           logger.debug(
             `[Responses API] Stored response ${responseId} in conversation ${conversationId}`,

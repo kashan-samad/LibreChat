@@ -11,10 +11,6 @@ const mockRecordCollectedUsage = jest
 const mockGetBalanceConfig = jest.fn().mockReturnValue({ enabled: true });
 const mockGetTransactionsConfig = jest.fn().mockReturnValue({ enabled: true });
 
-jest.mock('nanoid', () => ({
-  nanoid: jest.fn(() => 'mock-nanoid-123'),
-}));
-
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid-456'),
 }));
@@ -118,6 +114,10 @@ jest.mock('~/server/controllers/agents/callbacks', () => {
     }),
   };
 });
+
+jest.mock('~/server/services/Files/process', () => ({
+  saveBase64Image: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('~/server/services/PermissionService', () => ({
   findAccessibleResources: jest.fn().mockResolvedValue([]),
