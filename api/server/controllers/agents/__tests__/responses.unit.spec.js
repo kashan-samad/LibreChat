@@ -49,11 +49,11 @@ jest.mock('@librechat/api', () => ({
   createToolExecuteHandler: jest.fn().mockReturnValue({ handle: jest.fn() }),
   // Responses API
   writeDone: jest.fn(),
-  buildResponse: jest.fn().mockReturnValue({ id: 'resp_123', output: [] }),
+  buildResponse: jest.fn().mockReturnValue({ id: 'mock-uuid-456', output: [] }),
   generateResponseId: jest.fn().mockReturnValue('resp_mock-123'),
   isValidationFailure: jest.fn().mockReturnValue(false),
   emitResponseCreated: jest.fn(),
-  createResponseContext: jest.fn().mockReturnValue({ responseId: 'resp_123' }),
+  createResponseContext: jest.fn().mockReturnValue({ responseId: 'mock-uuid-456' }),
   createResponseTracker: jest.fn().mockReturnValue({
     usage: { promptTokens: 100, completionTokens: 50 },
   }),

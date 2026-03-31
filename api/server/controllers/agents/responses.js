@@ -180,6 +180,13 @@ async function persistImageParts(req, contentParts) {
 }
 
 async function saveInputMessages(req, conversationId, inputMessages, agentId) {
+  const prevMessages = await db.getMessages({ conversationId, user: req?.user?.id });
+  const lastAssistantMsg = prevMessages
+    ?.slice()
+    .reverse()
+    .find((m) => !m.isCreatedByUser);
+  const parentMessageId = lastAssistantMsg?.messageId ?? '00000000-0000-0000-0000-000000000000';
+
   let userMessageId;
   for (const msg of inputMessages) {
     if (msg.role === 'user') {
@@ -201,7 +208,7 @@ async function saveInputMessages(req, conversationId, inputMessages, agentId) {
         {
           messageId: userMessageId,
           conversationId,
-          parentMessageId: '00000000-0000-0000-0000-000000000000',
+          parentMessageId,
           isCreatedByUser: true,
           text: textContent,
           ...(files.length > 0 && { files }),
@@ -238,6 +245,8 @@ async function saveResponseOutput(req, conversationId, responseId, response, age
     }
   }
 
+  const assistantMessageId = uuidv4();
+
   // Save the assistant message
   await db.saveMessage(
     {
@@ -246,7 +255,7 @@ async function saveResponseOutput(req, conversationId, responseId, response, age
       interfaceConfig: req?.config?.interfaceConfig,
     },
     {
-      messageId: uuidv4(),
+      messageId: assistantMessageId,
       conversationId,
       parentMessageId: userMessageId ?? '00000000-0000-0000-0000-000000000000',
       isCreatedByUser: false,
@@ -261,6 +270,8 @@ async function saveResponseOutput(req, conversationId, responseId, response, age
     },
     { context: 'Responses API - save assistant response' },
   );
+
+  return assistantMessageId;
 }
 
 /**
@@ -353,14 +364,6 @@ const createResponse = async (req, res) => {
     );
   }
 
-  // Generate IDs
-  const responseId = generateResponseId();
-  const context = createResponseContext(request, responseId);
-
-  logger.debug(
-    `[Responses API] Request ${responseId} started for agent ${agentId}, stream: ${isStreaming}`,
-  );
-
   // Set up abort controller
   const abortController = new AbortController();
 
@@ -388,6 +391,9 @@ const createResponse = async (req, res) => {
     }
 
     const conversationId = request.previous_response_id ?? uuidv4();
+    const responseId = conversationId;
+    const context = createResponseContext(request, responseId);
+
     const parentMessageId = null;
 
     // Build allowed providers set
